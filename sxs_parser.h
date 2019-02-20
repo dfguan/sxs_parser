@@ -63,6 +63,9 @@ int sxs_close(sxs_file_t *fp);
 int sxs_read_unit(sxs_file_t *fp, sxs_unit_t *su);
 int sxs_read_blk(sxs_file_t *fp, sxs_unit_t *su, int n);
 
+sxs_unit_t *sxs_unit_init(int n);
+int sxs_unit_destroy();
+
 #ifdef __cplusplus
 }
 #endif
