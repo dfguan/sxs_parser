@@ -22,7 +22,7 @@
 #include <string.h>
 
 
-#include "sxs_parser.h"
+#include "sxslib.h"
 #include "kseq.h"
 
 KSTREAM_INIT(gzFile, gzread, gzseek, 0x10000)
@@ -51,12 +51,6 @@ int sxs_close(sxs_file_t *fp) {
 sxs_unit_t *sxs_unit_init(int n)
 {
 	sxs_unit_t *sus = (sxs_unit_t *)calloc(n, sizeof(sxs_unit_t));	
-	/*if (sus) {*/
-		/*int i;*/
-		/*for ( i = 0; i < n; ++i ) {*/
-			/*sus[i].n_tp = sus[i].m_tp = sus[i].cigar.l = sus[i].cigar.m  = 0;*/
-		/*}*/
-	/*}*/
 	return sus;
 }
 
@@ -176,6 +170,7 @@ int parse_q(char *s, int l, sxs_unit_t *su)
 	if (t < 1) return -1;
 	return 0;
 }	
+
 int parse_c(char *s, int l, sxs_unit_t *su)
 {
 	char *q;
@@ -200,6 +195,40 @@ int parse_c(char *s, int l, sxs_unit_t *su)
 	return 0;
 }	
 
+int parse_hdr(char *s, int l, sxs_hdr_t *sh)
+{
+	char *q;
+	int i, t;
+	if (sh->n_fns >= 2) return -1;
+	/*fprintf(stderr, "%s\n", s);*/
+	i = 0; while (i < l && s[i] == '\t') ++i; 
+	kstring_t *fn = &sh->fns[sh->n_fns];
+	int *nrds = &sh->n_rds[sh->n_fns];
+	int *type = &sh->types[sh->n_fns];
+	for (t = 0, q = s + i; i <= l; ++i) {
+		if (i < l && s[i] != '\t') continue;
+		s[i] = 0;
+		if (t == 0) {
+			size_t name_len = &s[i] - q;
+			if (name_len >= sh->fns[sh->n_fns].m) {
+				fn->m = name_len + 16;
+				fn->s = (char *)realloc(fn->s, sizeof(char) * fn->m);			
+			}
+			strncpy(fn->s, q, name_len+1);
+			fn->l = name_len;
+		}
+		else if (t == 1)  *type = q[0];
+		else if (t == 2)  *nrds = atoi(q);
+		++t, q = i < l? &s[i+1] : 0;
+	}
+	if (t < 2) return -1;
+	else 
+		++sh->n_fns;
+	return 0;
+
+
+}
+
 int sxs_read_hdr(sxs_file_t *fp, sxs_hdr_t *sh)
 {
 	//should be called at the first time 
@@ -208,9 +237,11 @@ int sxs_read_hdr(sxs_file_t *fp, sxs_hdr_t *sh)
 	int ret = 0;	
 	while ((c = ks_getc(ks)) != -1) {
 		if (c == '<') {
-			if (ks_getuntil(ks, KS_SEP_LINE, &sh->fns[sh->n_fns++], 0) < 0) {
+			if (ks_getuntil(ks, KS_SEP_LINE, &fp->buf, 0) < 0) {
 				ret = -1; break;	
-			}
+			} else {
+				parse_hdr(fp->buf.s, fp->buf.l, sh);	
+			} 
 		} else if (c == 'A') {
 			fp->last_char = c;
 			break;
@@ -303,18 +334,12 @@ int sxs_print_unit(sxs_unit_t *s, int n)
 {
 	int i;
 	for ( i = 0; i < n; ++i ) {
-		fprintf(stdout, "A\t%d\t%d\n", s[i].aid, s[i].bid);
-		fprintf(stdout, "I\t%d\t%d\t%d\t%d\n", s[i].as, s[i].ae, s[i].bs, s[i].be);
-		if (s[i].cigar.l) fprintf(stdout, "C\t%s\n", s[i].cigar.s);
-		if (s[i].n_tp) {
-			fprintf(stdout, "T\t%d", s[i].n_tp);
-			int j;
-			for ( j = 0; j < s[i].n_tp; ++j) 
-				fprintf(stdout, "\t%d", s[i].tps[j]);	
-			fprintf(stdout, "\n");	
-		}
-		fprintf(stdout, "M\t%d\n", s[i].match);
-		fprintf(stdout, "Q\t%d\n", s[i].maq);
+		sxs_write(stdout, "A", s[i].aid, s[i].bid);
+		sxs_write(stdout, "I", s[i].as, s[i].ae, s[i].bs, s[i].be);
+		if (s[i].cigar.l) sxs_write(stdout, "C", s[i].cigar.s);
+		if (s[i].n_tp) sxs_write(stdout, "T", s[i].n_tp, s[i].tps);
+		sxs_write(stdout, "M", s[i].match);
+		sxs_write(stdout, "Q", s[i].maq);
 	}	
 	return 0;
 }
@@ -326,12 +351,10 @@ int main(int argc, char *argv[])
 	sxs_file_t *sf = sxs_open(argv[1]);
 	sxs_unit_t *su = sxs_unit_init(1);
 	
-	
-	while (sxs_read_unit(sf, su) >= 0) {
+	while (sxs_read_unit(sf, su) >= 0) 
 		sxs_print_unit(su, 1);
-	}
+	
 	sxs_unit_destroy(su, 1);
 	sxs_close(sf);
 }
-
 #endif

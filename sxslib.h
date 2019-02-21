@@ -1,12 +1,12 @@
 /*
  * =====================================================================================
  *
- *       Filename:  sxs_parser.h
+ *       Filename:  sxslib.h
  *
- *    Description:	hdr parser for sxs 
+ *    Description:  library header for sxs file 
  *
  *        Version:  1.0
- *        Created:  20/02/19 11:13:26
+ *        Created:  21/02/2019 10:39:53
  *       Revision:  none
  *       Compiler:  gcc
  *
@@ -16,9 +16,10 @@
  * =====================================================================================
  */
 
-#ifndef SXS_PARSER
-#define SXS_PARSER
+#ifndef SXS_LIB
+#define SXS_LIB
 
+#include <stdio.h>
 #include <stdint.h>
 #include <sys/types.h>
 
@@ -31,16 +32,17 @@ typedef struct __kstring_t {
 #endif
 
 typedef struct {
-	int n_fns, m_fns;
-	kstring_t *fns;
+	int n_fns;
+	kstring_t fns[2];
+	int n_rds[2];
+	int types[2];
 }sxs_hdr_t;
 
 typedef struct {
 	int aid, bid;
-	int as, ae;	
-	int bs, be;
+	int as, ae, bs, be;
 	kstring_t cigar;
-	int match;
+	int match, diff;
 	int maq;
 	int n_tp, m_tp;
 	int *tps;
@@ -57,18 +59,20 @@ typedef struct {
 extern "C" {
 #endif 
 
-sxs_file_t *sxs_open(const char *fn);
-int sxs_close(sxs_file_t *fp);
+sxs_file_t *sxs_open(const char *fn); //open sxs file and return file handle
+int sxs_close(sxs_file_t *fp); //close sxs file
 
-int sxs_read_unit(sxs_file_t *fp, sxs_unit_t *su);
-int sxs_read_blk(sxs_file_t *fp, sxs_unit_t *su, int n);
+int sxs_read_unit(sxs_file_t *fp, sxs_unit_t *su); //read a single sxs record
+int sxs_read_blk(sxs_file_t *fp, sxs_unit_t *su, int n); //read bulk sxs records 
 
-sxs_unit_t *sxs_unit_init(int n);
-int sxs_unit_destroy();
+sxs_unit_t *sxs_unit_init(int n); //initiate sxs unit data structure
+int sxs_unit_destroy(); //release memory for sxs units
 
+int sxs_write(FILE *stream, char *format, ...);
 #ifdef __cplusplus
 }
 #endif
 
 
 #endif
+

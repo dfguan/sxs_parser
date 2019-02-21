@@ -8,7 +8,7 @@ PROG = sxspar
 
 all:$(PROG)
 
-sxspar: sxs_parser.o
+sxspar: sxs_reader.o sxs_writer.o
 	$(CC) $(CFLAGS) $^ -o $@ $(LDFLAGS) 	
 
 .c .o:
